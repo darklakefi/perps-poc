@@ -1,7 +1,9 @@
 use axum::{Json, http::StatusCode, extract::State};
 use serde::{Deserialize, Serialize};
-use crate::liqudation::cache::{AccountCache, SharedAccountCache};
+use crate::liqudation::cache::AccountCache;
 use axum::extract::Path;
+use crate::AppState;
+
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Position {
@@ -21,7 +23,6 @@ pub struct User {
     pub balance: [u8;32],
 }
 
-// Request/Response structures
 #[derive(Deserialize)]
 pub struct CreateUserRequest {
     user_id: u128,
@@ -58,14 +59,13 @@ pub fn create_user(id: u128) -> User {
 
 #[axum::debug_handler]
 pub async fn create_user_handler(
-    State(cache): State<SharedAccountCache>,
+    State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>
 ) -> (StatusCode, Json<CreateUserResponse>) {
     let user = create_user(payload.user_id);
     // TODO: Store user in database/state
     
-    // Lock the cache and add user
-    let mut cache_guard = cache.lock().await;
+    let mut cache_guard = state.cache.lock().await;
     let success = cache_guard.add_user(user);
 
     let response = if success {
@@ -87,10 +87,10 @@ pub async fn create_user_handler(
 
 #[axum::debug_handler]
 pub async fn get_user_handler(
-    State(cache): State<SharedAccountCache>,
+    State(state): State<AppState>,
     Path(user_id): Path<u128>
 ) -> (StatusCode, Json<GetUserResponse>) {
-    let mut cache_guard = cache.lock().await;
+    let mut cache_guard = state.cache.lock().await;
     let user = cache_guard.get_user(user_id);
 
     let response = if let Some(user) = user {
