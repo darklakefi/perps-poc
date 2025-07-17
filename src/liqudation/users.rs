@@ -2,7 +2,8 @@ use axum::{Json, http::StatusCode, extract::State};
 use serde::{Deserialize, Serialize};
 use crate::liqudation::cache::{AccountCache, SharedAccountCache, CiphertextCache};
 use crate::fhe::circuits::{deposit_circuit};
-
+use tfhe::prelude::FheDecrypt;
+use tfhe::set_server_key;
 use axum::extract::Path;
 use crate::AppState;
 
@@ -69,6 +70,16 @@ pub fn create_user(id: u128) -> User {
     }
 }
 
+#[derive(Deserialize)]
+pub struct ViewBalanceRequest {
+    user_id: u128,
+}
+
+#[derive(Serialize)]
+pub struct ViewBalanceResponse {
+    plaintext: u64,
+}
+
 ////////////////////////////// Handlers //////////////////////////////
 
 #[axum::debug_handler]
@@ -129,6 +140,20 @@ pub async fn deposit_handler(
     State(state): State<AppState>,
     Json(payload): Json<DepositRequest>
 ) -> (StatusCode, Json<DepositResponse>) {
+
     deposit_circuit(&state, payload.user_id, payload.amount, payload.key).await;
     (StatusCode::OK, Json(DepositResponse { message: "Deposit successful".to_string() }))
+}
+
+pub async fn view_balance_handler(
+    State(state): State<AppState>,
+    Path(user_id): Path<u128>
+) -> (StatusCode, Json<ViewBalanceResponse>) {
+    set_server_key((*state.server_key).clone());
+    let balance = state.user_cache.lock().await.get_balance(user_id).unwrap().clone();
+    let decrypted: u64 = state.ciphertext_cache.lock().await.get_ciphertext(balance).unwrap().ciphertext.decrypt(&state.client_key);
+    let response = ViewBalanceResponse {
+        plaintext: decrypted,
+    };
+    (StatusCode::OK, Json(response))
 }

@@ -31,8 +31,16 @@ impl AccountCache {
         }
     }
 
+    pub fn update_balance(&mut self, user_id: u128, key: [u8;32]) {
+        self.users.get_mut(&user_id).unwrap().balance = key;
+    }
+
     pub fn get_user(&mut self, user_id: u128) -> Option<&mut User> {
         self.users.get_mut(&user_id)
+    }
+
+    pub fn get_balance(&self, user_id: u128) -> Option<&[u8;32]> {
+        self.users.get(&user_id).map(|user| &user.balance)
     }
 
     pub fn user_exists(&self, user_id: u128) -> bool {
@@ -80,5 +88,6 @@ impl CiphertextCache {
     pub fn get_ciphertext(&self, key: [u8;32]) -> Option<&Ciphertext> {
         self.ciphertexts.get(&key)
     }
+
        
 }

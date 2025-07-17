@@ -5,7 +5,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 mod fhe;
 mod liqudation;
-use crate::liqudation::users::{create_user_handler, get_user_handler};
+use crate::liqudation::users::{create_user_handler, get_user_handler, deposit_handler, view_balance_handler};
 use crate::liqudation::cache::{AccountCache, SharedAccountCache, CiphertextCache};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -55,6 +55,8 @@ async fn main() {
         .route("/create_user", post(create_user_handler))
         .route("/get_user/:user_id", get(get_user_handler))
         .route("/encrypt", post(encrypt_handler))
+        .route("/deposit", post(deposit_handler))
+        .route("/view_balance/:user_id", get(view_balance_handler))
         .with_state(state);
 
 
