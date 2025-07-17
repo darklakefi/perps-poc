@@ -2,6 +2,13 @@ use crate::liqudation::users::User;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tfhe::{CompressedCiphertextList, FheUint64};
+
+#[derive(Clone)]
+pub struct Ciphertext {
+    pub ciphertext: FheUint64,
+    pub owner: u128,
+}
 
 #[derive(Clone)]
 pub struct AccountCache {
@@ -40,3 +47,38 @@ impl AccountCache {
 
 pub type SharedAccountCache = Arc<Mutex<AccountCache>>;
 
+#[derive(Clone)]
+pub struct CiphertextCache {
+    ciphertexts: HashMap<[u8;32], Ciphertext>,
+}
+
+impl CiphertextCache {
+    pub fn new() -> Self {
+        Self {
+            ciphertexts: HashMap::new(),
+        }
+    }
+    
+    pub fn add_ciphertext(&mut self, key: [u8;32], owner: u128, value: FheUint64) -> bool {
+        if self.ciphertexts.contains_key(&key) {
+            false // Ciphertext already exists
+        } else {
+            self.ciphertexts.insert(key, Ciphertext { owner, ciphertext: value });
+            true // Ciphertext added successfully
+        }
+    }
+
+    pub fn update_ciphertext(&mut self, key: [u8;32], owner: u128, value: FheUint64) -> bool {
+        if !self.ciphertexts.contains_key(&key) {
+            false // Ciphertext does not exist
+        } else {
+            self.ciphertexts.insert(key, Ciphertext { owner, ciphertext: value });   
+            true // Ciphertext updated successfully
+        }
+    }
+
+    pub fn get_ciphertext(&self, key: [u8;32]) -> Option<&Ciphertext> {
+        self.ciphertexts.get(&key)
+    }
+       
+}

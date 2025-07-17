@@ -1,6 +1,8 @@
 use axum::{Json, http::StatusCode, extract::State};
 use serde::{Deserialize, Serialize};
-use crate::liqudation::cache::AccountCache;
+use crate::liqudation::cache::{AccountCache, SharedAccountCache, CiphertextCache};
+use crate::fhe::circuits::{deposit_circuit};
+
 use axum::extract::Path;
 use crate::AppState;
 
@@ -46,6 +48,19 @@ pub struct GetUserResponse {
     balance: [u8;32],
 }
 
+#[derive(Deserialize)]
+pub struct DepositRequest {
+    user_id: u128,
+    amount: u64,
+    key: [u8;32],
+}
+
+#[derive(Serialize)]
+pub struct DepositResponse {
+    message: String,
+}
+
+
 pub fn create_user(id: u128) -> User {
     User {
         id,
@@ -53,7 +68,6 @@ pub fn create_user(id: u128) -> User {
         balance: [0;32],
     }
 }
-
 
 ////////////////////////////// Handlers //////////////////////////////
 
@@ -65,7 +79,7 @@ pub async fn create_user_handler(
     let user = create_user(payload.user_id);
     // TODO: Store user in database/state
     
-    let mut cache_guard = state.cache.lock().await;
+    let mut cache_guard = state.user_cache.lock().await;
     let success = cache_guard.add_user(user);
 
     let response = if success {
@@ -90,7 +104,7 @@ pub async fn get_user_handler(
     State(state): State<AppState>,
     Path(user_id): Path<u128>
 ) -> (StatusCode, Json<GetUserResponse>) {
-    let mut cache_guard = state.cache.lock().await;
+    let mut cache_guard = state.user_cache.lock().await;
     let user = cache_guard.get_user(user_id);
 
     let response = if let Some(user) = user {
@@ -110,3 +124,11 @@ pub async fn get_user_handler(
     (StatusCode::OK, Json(response))
 }
 
+#[axum::debug_handler]
+pub async fn deposit_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<DepositRequest>
+) -> (StatusCode, Json<DepositResponse>) {
+    deposit_circuit(&state, payload.user_id, payload.amount, payload.key).await;
+    (StatusCode::OK, Json(DepositResponse { message: "Deposit successful".to_string() }))
+}

@@ -1,19 +1,22 @@
 use axum::{
-    routing::{get, post}, Router,
+    routing::{get, post}, Router, Json, extract::State,
+    http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
 mod fhe;
 mod liqudation;
 use crate::liqudation::users::{create_user_handler, get_user_handler};
-use crate::liqudation::cache::AccountCache;
+use crate::liqudation::cache::{AccountCache, SharedAccountCache, CiphertextCache};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tfhe::{ServerKey, ClientKey};
+use crate::liqudation::handlers::{encrypt_handler};
 
 
 #[derive(Clone)]
 struct AppState {
-    cache: Arc<Mutex<AccountCache>>,
+    user_cache: Arc<Mutex<AccountCache>>,
+    ciphertext_cache: Arc<Mutex<CiphertextCache>>,
     server_key: Arc<ServerKey>,
     client_key: Arc<ClientKey>,
 }
@@ -39,9 +42,11 @@ async fn main() {
         return;
     }
 
-    let cache = Arc::new(Mutex::new(AccountCache::new()));
+    let user_cache = Arc::new(Mutex::new(AccountCache::new()));
+    let ciphertext_cache = Arc::new(Mutex::new(CiphertextCache::new()));
     let state = AppState { 
-        cache: cache.clone(),
+        user_cache: user_cache.clone(),
+        ciphertext_cache: ciphertext_cache.clone(),
         server_key: Arc::new(fhe::key_gen::load_server_key().unwrap()),
         client_key: Arc::new(fhe::key_gen::load_client_key().unwrap()),
     };
@@ -49,6 +54,7 @@ async fn main() {
     let app = Router::new()
         .route("/create_user", post(create_user_handler))
         .route("/get_user/:user_id", get(get_user_handler))
+        .route("/encrypt", post(encrypt_handler))
         .with_state(state);
 
 
