@@ -9,7 +9,7 @@ Basic User Flow
     - If Underwater -> trigger liqudation 
     - Funding Rate Adjustment
 4. User closes position
-
+5. Withdraw
 
 Server Architecture
 
@@ -32,3 +32,11 @@ Questions for the Team??
     - i think arcium doesn use zk and if the amount u tried to encrypt, u kinda just fuck urself
     - current poc poc doesnt handle this, user inputs is public.. deal w this later
     - pub key encryption client side cud also work, we just forwards the pointer we generate??
+
+Food for Thought:
+
+- Why do we have an in-momory 'cache'
+    - AFAIK general practice for FHE coprocessing requires the actualy Compresseed and serlized Ciphertexts to be stored in a DB (maybe even written to a DA)
+    - The cache allows us to refrence ciphertexts directly in their un-compressed state (FheUint64 in this case) wihtout having to deal with compression and deserlization 
+    - Useful for ciphertexts that don't need to persist. 
+    - Again the idea is that everytime we need to write or update a ciphertext, we spin up some sort of async thread/worker to handle the db write process (compress and serlize)

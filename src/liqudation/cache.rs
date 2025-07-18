@@ -88,6 +88,5 @@ impl CiphertextCache {
     pub fn get_ciphertext(&self, key: [u8;32]) -> Option<&Ciphertext> {
         self.ciphertexts.get(&key)
     }
-
        
 }

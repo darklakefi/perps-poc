@@ -6,6 +6,8 @@ use tfhe::{
 };
 use tfhe::prelude::*;
 use crate::AppState;
+use crate::liqudation::users::Position;
+
 
 pub async fn deposit_circuit(state: &AppState, user_id: u128, amount: u64, key: [u8;32]) -> Result<(), Box<dyn std::error::Error>> {
     set_server_key((*state.server_key).clone());
@@ -28,3 +30,27 @@ pub async fn deposit_circuit(state: &AppState, user_id: u128, amount: u64, key: 
     Ok(())
 }   
 
+
+async fn withdraw_circuit(state: &AppState, user_id: u128, amount: u64, key:[u8;32]) -> Result<(), Box<dyn std::error::Error>> {
+    set_server_key((*state.server_key).clone());
+    Ok(())
+}
+
+pub async fn open_position_circuit(
+    state: &AppState,
+    user_id: u128,
+    direction: bool,
+    notional: u64,
+    leverage_ciphertext: FheUint64,
+    initial_margin_ciphertext: FheUint64
+) -> Result<(), Box<dyn std::error::Error>> { // chage this back to position after i finish testing ******
+    let opening_fee = (notional as f64 * 0.01).ceil() as u64; // for lets assume this is the same as margin as well, ill use a constant later
+    set_server_key((*state.server_key).clone());
+    let opening_fee_ciphertext = FheUint64::encrypt(opening_fee, &*state.client_key);
+    let notional_ciphertext = FheUint64::encrypt(notional, &*state.client_key);
+    let valid_notional = notional_ciphertext.eq(&initial_margin_ciphertext * &leverage_ciphertext);
+    //let liqudation_price_ciphertext = notional_ciphertext 
+    
+    
+    Ok(())
+}

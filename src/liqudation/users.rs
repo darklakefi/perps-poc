@@ -1,7 +1,7 @@
 use axum::{Json, http::StatusCode, extract::State};
 use serde::{Deserialize, Serialize};
 use crate::liqudation::cache::{AccountCache, SharedAccountCache, CiphertextCache};
-use crate::fhe::circuits::{deposit_circuit};
+use crate::fhe::circuits::{deposit_circuit, open_position_circuit};
 use tfhe::prelude::FheDecrypt;
 use tfhe::set_server_key;
 use axum::extract::Path;
@@ -11,9 +11,9 @@ use crate::AppState;
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Position {
     pub id: u128,
-    pub notional: u128,
-    pub direction: bool,
-    pub entry_price: u128,
+    pub direction: bool, // true is long 
+    pub notional: u64,
+    pub entry_price: u64,
     pub leverage: [u8;32],
     pub initial_maring: [u8;32],
     pub liqudation_price: [u8;32],
@@ -78,6 +78,20 @@ pub struct ViewBalanceRequest {
 #[derive(Serialize)]
 pub struct ViewBalanceResponse {
     plaintext: u64,
+}
+
+#[derive(Deserialize)]
+pub struct OpenPositionRequest {
+    user_id: u128,
+    direction: bool,
+    notional: u64,
+    leverage: [u8;32],
+    initial_margin: [u8;32]
+}
+
+#[derive(Serialize)]
+pub struct OpenPositionResponse {
+    message: String,
 }
 
 ////////////////////////////// Handlers //////////////////////////////
@@ -157,3 +171,15 @@ pub async fn view_balance_handler(
     };
     (StatusCode::OK, Json(response))
 }
+
+pub async fn open_position_handler( // for now we are going to happy path the transfer check 
+    State(state): State<AppState>,
+    Json(payload): Json<OpenPositionRequest>
+) -> (StatusCode, Json<OpenPositionResponse>) {
+    // TODO user check 
+    let leverage_ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(payload.leverage).unwrap().ciphertext.clone();
+    let initial_margin_ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(payload.initial_margin).unwrap().ciphertext.clone();
+    let position = open_position_circuit(&state, payload.user_id, payload.direction, payload.notional, leverage_ciphertext, initial_margin_ciphertext).await;
+    (StatusCode::OK, Json(OpenPositionResponse { message: "Position opened successfully".to_string() }))
+}
+
