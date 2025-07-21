@@ -121,4 +121,13 @@ impl PositionCache {
             self.short_positions.push(position);
         }
     }
+
+    pub fn get_position(&self, id: u128, direction: bool) -> Option<&Position> {
+        if direction {
+            self.long_positions.iter().find(|position| position.id == id)
+        } else {
+            self.short_positions.iter().find(|position| position.id == id)
+        }
+    }
+
 }

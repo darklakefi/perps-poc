@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use axum::{Json, http::StatusCode, extract::{State, Path}};
 use crate::AppState;
 use rand::Rng;
-
+use crate::fhe::circuits::health_check_long_circuit;
 use tfhe::{
     FheUint64,
     CompressedCiphertextListBuilder,
@@ -27,6 +27,20 @@ pub struct EncryptResponse {
 pub struct GetCiphertextResponse {
     pub ciphertext: FheUint64,
 }
+
+#[derive(Deserialize)]
+pub struct HealthCheckRequest {
+    pub position_id: u128,
+    pub mark_price: u64,
+}
+
+#[derive(Serialize)]
+pub struct HealthCheckResponse {
+    pub status: String,
+}
+
+
+//////////////////////////////////////////////////////////// Handlers ////////////////////////////////////////////////////////////
 
 pub async fn encrypt_handler(
     State(state): State<AppState>,
@@ -59,6 +73,20 @@ pub async fn get_ciphertext_handler(
     let ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(ciphertext_key).unwrap().clone();
     (StatusCode::OK, Json(GetCiphertextResponse { ciphertext: ciphertext.ciphertext.clone() }))
 }
+
+pub async fn health_check_long_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<HealthCheckRequest>
+) -> (StatusCode, Json<HealthCheckResponse>) { //for now lets just check the first long position in the array
+    let position = state.position_cache.lock().await.get_position(0, true).unwrap().clone(); // just get first for now
+    let liqdation_price_ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(position.liqudation_price).unwrap().ciphertext.clone();
+    let result = health_check_long_circuit(&state, liqdation_price_ciphertext, payload.mark_price).await;
+    if result { 
+        (StatusCode::OK, Json(HealthCheckResponse { status: "Solvent".to_string() }))
+    } else {
+        (StatusCode::BAD_REQUEST, Json(HealthCheckResponse { status: "Insolvent".to_string() }))
+    }
+} 
 
 
 

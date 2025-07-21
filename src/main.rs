@@ -10,7 +10,7 @@ use crate::liqudation::cache::{AccountCache, SharedAccountCache, CiphertextCache
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tfhe::{ServerKey, ClientKey};
-use crate::liqudation::handlers::{encrypt_handler, get_ciphertext_handler};
+use crate::liqudation::handlers::{encrypt_handler, get_ciphertext_handler, health_check_long_handler};
 
 
 #[derive(Clone)]
@@ -62,6 +62,7 @@ async fn main() {
         .route("/view_balance/:user_id", get(view_balance_handler))
         .route("/get_ciphertext/:ciphertext_key", get(get_ciphertext_handler))
         .route("/open_position", post(open_position_handler)) // maybe i make a seperate one for long/short
+        .route("/health_check_long", post(health_check_long_handler))
         .with_state(state);
 
 
