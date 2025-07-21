@@ -6,7 +6,7 @@ use tfhe::prelude::FheDecrypt;
 use tfhe::set_server_key;
 use axum::extract::Path;
 use crate::AppState;
-
+use crate::liqudation::handlers::{_encrypt_helper};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Position {
@@ -15,7 +15,7 @@ pub struct Position {
     pub notional: u64,
     pub entry_price: u64,
     pub leverage: [u8;32],
-    pub initial_maring: [u8;32],
+    pub initial_margin: [u8;32],
     pub liqudation_price: [u8;32],
 }
 
@@ -89,6 +89,15 @@ pub struct OpenPositionRequest {
     initial_margin: [u8;32]
 }
 
+#[derive(Deserialize)]
+pub struct OpenPositionRequestTEST {
+    user_id: u128,
+    direction: bool,
+    entry_price: u64,
+    notional: u64,
+    leverage: u64,
+    initial_margin: u64
+}
 #[derive(Serialize)]
 pub struct OpenPositionResponse {
     message: String,
@@ -174,12 +183,25 @@ pub async fn view_balance_handler(
 
 pub async fn open_position_handler( // for now we are going to happy path the transfer check 
     State(state): State<AppState>,
-    Json(payload): Json<OpenPositionRequest>
+    Json(payload): Json<OpenPositionRequestTEST>
 ) -> (StatusCode, Json<OpenPositionResponse>) {
     // TODO user check 
-    let leverage_ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(payload.leverage).unwrap().ciphertext.clone();
-    let initial_margin_ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(payload.initial_margin).unwrap().ciphertext.clone();
-    let position = open_position_circuit(&state, payload.user_id, payload.direction, payload.notional, leverage_ciphertext, initial_margin_ciphertext).await;
+    
+    // for now lets just use a helper to simulate the encryption process
+    let leverage_key = _encrypt_helper(State(state.clone()), payload.leverage, payload.user_id).await;
+    let initial_margin_key = _encrypt_helper(State(state.clone()), payload.initial_margin, payload.user_id).await;
+    let leverage_ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(leverage_key).unwrap().ciphertext.clone();
+    let initial_margin_ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(initial_margin_key).unwrap().ciphertext.clone();
+    let position = open_position_circuit(
+        &state, payload.user_id, 
+        payload.entry_price, 
+        payload.direction,
+        payload.notional,
+        leverage_ciphertext, 
+        initial_margin_ciphertext,
+        initial_margin_key,
+        leverage_key,
+    ).await;
     (StatusCode::OK, Json(OpenPositionResponse { message: "Position opened successfully".to_string() }))
 }
 

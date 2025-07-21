@@ -5,18 +5,19 @@ use axum::{
 use serde::{Deserialize, Serialize};
 mod fhe;
 mod liqudation;
-use crate::liqudation::users::{create_user_handler, get_user_handler, deposit_handler, view_balance_handler};
-use crate::liqudation::cache::{AccountCache, SharedAccountCache, CiphertextCache};
+use crate::liqudation::users::{create_user_handler, get_user_handler, deposit_handler, view_balance_handler, open_position_handler};
+use crate::liqudation::cache::{AccountCache, SharedAccountCache, CiphertextCache, PositionCache};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tfhe::{ServerKey, ClientKey};
-use crate::liqudation::handlers::{encrypt_handler};
+use crate::liqudation::handlers::{encrypt_handler, get_ciphertext_handler};
 
 
 #[derive(Clone)]
 struct AppState {
     user_cache: Arc<Mutex<AccountCache>>,
     ciphertext_cache: Arc<Mutex<CiphertextCache>>,
+    position_cache: Arc<Mutex<PositionCache>>,
     server_key: Arc<ServerKey>,
     client_key: Arc<ClientKey>,
 }
@@ -44,9 +45,11 @@ async fn main() {
 
     let user_cache = Arc::new(Mutex::new(AccountCache::new()));
     let ciphertext_cache = Arc::new(Mutex::new(CiphertextCache::new()));
+    let position_cache = Arc::new(Mutex::new(PositionCache::new()));
     let state = AppState { 
         user_cache: user_cache.clone(),
         ciphertext_cache: ciphertext_cache.clone(),
+        position_cache: position_cache.clone(),
         server_key: Arc::new(fhe::key_gen::load_server_key().unwrap()),
         client_key: Arc::new(fhe::key_gen::load_client_key().unwrap()),
     };
@@ -57,6 +60,8 @@ async fn main() {
         .route("/encrypt", post(encrypt_handler))
         .route("/deposit", post(deposit_handler))
         .route("/view_balance/:user_id", get(view_balance_handler))
+        .route("/get_ciphertext/:ciphertext_key", get(get_ciphertext_handler))
+        .route("/open_position", post(open_position_handler)) // maybe i make a seperate one for long/short
         .with_state(state);
 
 

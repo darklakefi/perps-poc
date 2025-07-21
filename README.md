@@ -40,3 +40,4 @@ Food for Thought:
     - The cache allows us to refrence ciphertexts directly in their un-compressed state (FheUint64 in this case) wihtout having to deal with compression and deserlization 
     - Useful for ciphertexts that don't need to persist. 
     - Again the idea is that everytime we need to write or update a ciphertext, we spin up some sort of async thread/worker to handle the db write process (compress and serlize)
+

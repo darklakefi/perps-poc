@@ -1,8 +1,10 @@
-use crate::liqudation::users::User;
+use crate::liqudation::users::{User, Position};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tfhe::{CompressedCiphertextList, FheUint64};
+
+
 
 #[derive(Clone)]
 pub struct Ciphertext {
@@ -13,6 +15,13 @@ pub struct Ciphertext {
 #[derive(Clone)]
 pub struct AccountCache {
     users: HashMap<u128, User>,
+}
+
+#[derive(Clone)]
+pub struct PositionCache {
+    pub n: u128,
+    long_positions: Vec<Position>,
+    short_positions: Vec<Position>,
 }
 
 impl AccountCache {
@@ -49,6 +58,10 @@ impl AccountCache {
 
     pub fn get_all_users(&self) -> &HashMap<u128, User> {
         &self.users
+    }
+
+    pub fn add_position(&mut self, user_id: u128, position: Position) {
+        self.users.get_mut(&user_id).unwrap().positions.push(position);
     }
     
 }
@@ -89,4 +102,23 @@ impl CiphertextCache {
         self.ciphertexts.get(&key)
     }
        
+}
+
+impl PositionCache {
+    pub fn new() -> Self {
+        Self {
+            n: 0,
+            long_positions: Vec::new(),
+            short_positions: Vec::new(),
+        }
+    }
+
+    pub fn add_position(&mut self, position: Position) {
+        self.n += 1;
+        if position.direction {
+            self.long_positions.push(position);
+        } else {
+            self.short_positions.push(position);
+        }
+    }
 }
