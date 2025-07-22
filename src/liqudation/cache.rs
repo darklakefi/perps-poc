@@ -8,6 +8,7 @@ use tfhe::{CompressedCiphertextList, FheUint64};
 
 #[derive(Clone)]
 pub struct Ciphertext {
+    pub key: [u8;32],
     pub ciphertext: FheUint64,
     pub owner: u128,
 }
@@ -84,7 +85,7 @@ impl CiphertextCache {
         if self.ciphertexts.contains_key(&key) {
             false // Ciphertext already exists
         } else {
-            self.ciphertexts.insert(key, Ciphertext { owner, ciphertext: value });
+            self.ciphertexts.insert(key, Ciphertext { key, owner, ciphertext: value });
             true // Ciphertext added successfully
         }
     }
@@ -93,7 +94,7 @@ impl CiphertextCache {
         if !self.ciphertexts.contains_key(&key) {
             false // Ciphertext does not exist
         } else {
-            self.ciphertexts.insert(key, Ciphertext { owner, ciphertext: value });   
+            self.ciphertexts.insert(key, Ciphertext { key, owner, ciphertext: value });   
             true // Ciphertext updated successfully
         }
     }

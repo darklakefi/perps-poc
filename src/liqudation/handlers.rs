@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use axum::{Json, http::StatusCode, extract::{State, Path}};
 use crate::AppState;
 use rand::Rng;
-use crate::fhe::circuits::health_check_long_circuit;
+use crate::fhe::circuits::{health_check_long_circuit, funding_rate_long_pay_short_circuit};
 use tfhe::{
     FheUint64,
     CompressedCiphertextListBuilder,
@@ -38,6 +38,20 @@ pub struct HealthCheckRequest {
 pub struct HealthCheckResponse {
     pub status: String,
 }
+
+#[derive(Deserialize)]
+pub struct FundingRateLPSRequest {
+    pub position_id: u128,
+    pub delta_percent: u64,
+}
+
+#[derive(Serialize)]
+pub struct FundingRateLPSResponse {
+    pub status: String,
+}
+
+
+
 
 
 //////////////////////////////////////////////////////////// Handlers ////////////////////////////////////////////////////////////
@@ -88,7 +102,19 @@ pub async fn health_check_long_handler(
     }
 } 
 
-
+pub async fn funding_rate_long_pay_short_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<FundingRateLPSRequest>
+) -> (StatusCode, Json<FundingRateLPSResponse>) {
+    let position = state.position_cache.lock().await.get_position(payload.position_id, true).unwrap().clone();
+    let delta = position.notional * payload.delta_percent / 100; 
+    let result = funding_rate_long_pay_short_circuit(
+        &state, 
+        state.ciphertext_cache.lock().await.get_ciphertext(position.liqudation_price).unwrap().clone(),
+        delta).await;
+    
+    (StatusCode::OK, Json(FundingRateLPSResponse { status: "Success".to_string() }))
+}
 
 
 

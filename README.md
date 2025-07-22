@@ -36,8 +36,15 @@ Questions for the Team??
 Food for Thought:
 
 - Why do we have an in-momory 'cache'
-    - AFAIK general practice for FHE coprocessing requires the actualy Compresseed and serlized Ciphertexts to be stored in a DB (maybe even written to a DA)
+    - AFAIK general practice for FHE coprocessing requires the actual Compresseed and serlized Ciphertexts to be stored in a DB (maybe even written to a DA)
     - The cache allows us to refrence ciphertexts directly in their un-compressed state (FheUint64 in this case) wihtout having to deal with compression and deserlization 
     - Useful for ciphertexts that don't need to persist. 
     - Again the idea is that everytime we need to write or update a ciphertext, we spin up some sort of async thread/worker to handle the db write process (compress and serlize)
+
+- We (I) need to think about how to optimize the health check/funding engine
+    - should we make it so that smaller assets have a tighter spread, as price flucations lead to many attacks
+
+- Handling quanitity adjustments
+    - intial poc of poc just giga happy path assums that 1 unit quantity. ex: 30k notional and entry price of 30k
+    - ideally it should be optimized for whatever is the least amount of compute. maybe quanitity adjustments can just be done in plaintext. 
 

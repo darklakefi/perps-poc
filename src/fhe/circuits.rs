@@ -9,7 +9,7 @@ use tfhe::prelude::*;
 use crate::AppState;
 use crate::liqudation::users::Position;
 use crate::liqudation::handlers::{_encrypt_helper, _encrypt_from_FheUint64};
-
+use crate::liqudation::cache::Ciphertext;
 
 pub async fn deposit_circuit(state: &AppState, user_id: u128, amount: u64, key: [u8;32]) -> Result<(), Box<dyn std::error::Error>> {
     set_server_key((*state.server_key).clone());
@@ -119,6 +119,12 @@ pub async fn health_check_long_circuit(state: &AppState, liqdation_price: FheUin
     status_decrypted
 }
 
-
+pub async fn funding_rate_long_pay_short_circuit(state: &AppState, liqudation_price_ciphertext: Ciphertext, delta: u64) -> Result<(), Box<dyn std::error::Error>> {
+    set_server_key((*state.server_key).clone());
+    let encrypted_delta = FheUint64::encrypt(delta, &*state.client_key);
+    let new_liqdation_price_ciphertext = &liqudation_price_ciphertext.ciphertext - &encrypted_delta;
+    state.ciphertext_cache.lock().await.update_ciphertext(liqudation_price_ciphertext.key, liqudation_price_ciphertext.owner, new_liqdation_price_ciphertext);
+    Ok(())
+}
 
 
