@@ -52,8 +52,6 @@ pub struct FundingRateLPSResponse {
 
 
 
-
-
 //////////////////////////////////////////////////////////// Handlers ////////////////////////////////////////////////////////////
 
 pub async fn encrypt_handler(
@@ -106,11 +104,19 @@ pub async fn funding_rate_long_pay_short_handler(
     State(state): State<AppState>,
     Json(payload): Json<FundingRateLPSRequest>
 ) -> (StatusCode, Json<FundingRateLPSResponse>) {
+    println!("Funding rate long pay short handler called");
     let position = state.position_cache.lock().await.get_position(payload.position_id, true).unwrap().clone();
+    println!("Position liquidation price key: {:?}", position.liqudation_price);
+    
+    let ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(position.liqudation_price).unwrap().clone();
+    println!("Ciphertext found with key: {:?}", ciphertext.key);
+    
     let delta = position.notional * payload.delta_percent / 100; 
-    let result = funding_rate_long_pay_short_circuit(
+    println!("Calculated delta: {}", delta);
+    
+    funding_rate_long_pay_short_circuit(
         &state, 
-        state.ciphertext_cache.lock().await.get_ciphertext(position.liqudation_price).unwrap().clone(),
+        ciphertext,
         delta).await;
     
     (StatusCode::OK, Json(FundingRateLPSResponse { status: "Success".to_string() }))

@@ -92,9 +92,11 @@ impl CiphertextCache {
 
     pub fn update_ciphertext(&mut self, key: [u8;32], owner: u128, value: FheUint64) -> bool {
         if !self.ciphertexts.contains_key(&key) {
+            println!("update attempt failed: Ciphertext does not exist");
             false // Ciphertext does not exist
         } else {
             self.ciphertexts.insert(key, Ciphertext { key, owner, ciphertext: value });   
+            println!("update attempt successful: Ciphertext updated");
             true // Ciphertext updated successfully
         }
     }

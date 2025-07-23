@@ -113,6 +113,7 @@ pub async fn open_position_circuit(
 
 pub async fn health_check_long_circuit(state: &AppState, liqdation_price: FheUint64, mark_price: u64) -> bool {
     set_server_key((*state.server_key).clone());
+    println!("Health check long circuit called");
     let mark_ciphertext = FheUint64::encrypt(mark_price, &*state.client_key);
     let status_ciphertext = mark_ciphertext.ge(&liqdation_price);
     let status_decrypted = status_ciphertext.decrypt(&*state.client_key);
@@ -121,9 +122,20 @@ pub async fn health_check_long_circuit(state: &AppState, liqdation_price: FheUin
 
 pub async fn funding_rate_long_pay_short_circuit(state: &AppState, liqudation_price_ciphertext: Ciphertext, delta: u64) -> Result<(), Box<dyn std::error::Error>> {
     set_server_key((*state.server_key).clone());
-    let encrypted_delta = FheUint64::encrypt(delta, &*state.client_key);
+    let encrypted_delta = FheUint64::encrypt(delta, &*state.client_key).clone();
+    println!("trying to do the math for funding rate LPS");
+    
+    let decrypted_delta: u64 = encrypted_delta.decrypt(&*state.client_key);
+    println!("delta decrypted: {}", decrypted_delta);
+    let decrypted_liqdation_price: u64 = liqudation_price_ciphertext.ciphertext.decrypt(&*state.client_key);
+    println!("liqdation price decrypted: {}", decrypted_liqdation_price);
+
+
     let new_liqdation_price_ciphertext = &liqudation_price_ciphertext.ciphertext - &encrypted_delta;
-    state.ciphertext_cache.lock().await.update_ciphertext(liqudation_price_ciphertext.key, liqudation_price_ciphertext.owner, new_liqdation_price_ciphertext);
+    println!("new liqdation price computed");
+    let update_result = state.ciphertext_cache.lock().await.update_ciphertext(liqudation_price_ciphertext.key, liqudation_price_ciphertext.owner, new_liqdation_price_ciphertext);
+    println!("update_ciphertext result: {}", update_result);
+    println!("funding rate LPS circuit finished");
     Ok(())
 }
 
