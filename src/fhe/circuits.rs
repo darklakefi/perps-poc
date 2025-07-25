@@ -91,7 +91,7 @@ pub async fn open_position_circuit(
         // need to deduct intiial margin from user balance
         let current_balance_key = state.user_cache.lock().await.get_user(user_id).unwrap().balance;
         let current_balance_ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(current_balance_key).unwrap().ciphertext.clone();
-        let new_balance_ciphertext = &current_balance_ciphertext - &initial_margin_ciphertext;
+        let new_balance_ciphertext = &current_balance_ciphertext - &initial_margin_ciphertext; // need to factor in the fees (rework) shud b easy tho
         println!("[{}ms] New balance computed", start_time.elapsed().as_millis());
         
         state.ciphertext_cache.lock().await.update_ciphertext(current_balance_key, user_id, new_balance_ciphertext); // update the ciphertext balance
@@ -131,7 +131,7 @@ pub async fn funding_rate_long_pay_short_circuit(state: &AppState, liqudation_pr
     println!("liqdation price decrypted: {}", decrypted_liqdation_price);
 
 
-    let new_liqdation_price_ciphertext = &liqudation_price_ciphertext.ciphertext - &encrypted_delta;
+    let new_liqdation_price_ciphertext = &liqudation_price_ciphertext.ciphertext + &encrypted_delta; // wait i think I need add this ??
     println!("new liqdation price computed");
     let update_result = state.ciphertext_cache.lock().await.update_ciphertext(liqudation_price_ciphertext.key, liqudation_price_ciphertext.owner, new_liqdation_price_ciphertext);
     println!("update_ciphertext result: {}", update_result);
