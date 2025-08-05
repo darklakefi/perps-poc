@@ -1,18 +1,15 @@
 use crate::liqudation::users::User;
-use crate::State;
 use tfhe::{
     FheUint64,
-    CompressedCiphertextListBuilder,
-    set_server_key,
 };
 use tfhe::prelude::*;
 use crate::AppState;
 use crate::liqudation::users::Position;
 use crate::liqudation::handlers::{_encrypt_helper, _encrypt_from_FheUint64};
+use axum::extract::State;
 use crate::liqudation::cache::Ciphertext;
 
 pub async fn deposit_circuit(state: &AppState, user_id: u128, amount: u64, key: [u8;32]) -> Result<(), Box<dyn std::error::Error>> {
-    set_server_key((*state.server_key).clone());
     println!("Attempting to deposit");
     let value = FheUint64::encrypt(amount, &*state.client_key); // generates the actual ciphertext
     if state.user_cache.lock().await.get_user(user_id).unwrap().balance == [0;32] { // if the user has no balance yet 
@@ -34,7 +31,6 @@ pub async fn deposit_circuit(state: &AppState, user_id: u128, amount: u64, key: 
 
 
 async fn withdraw_circuit(state: &AppState, user_id: u128, amount: u64, key:[u8;32]) -> Result<(), Box<dyn std::error::Error>> {
-    set_server_key((*state.server_key).clone());
     Ok(())
 }
 
@@ -53,8 +49,7 @@ pub async fn open_position_circuit(
     println!("[{}ms] Opening position...", start_time.elapsed().as_millis());
     
     let opening_fee = (notional as f64 * 0.01).ceil() as u64; // for lets assume this is the same as margin as well, ill use a constant later
-    set_server_key((*state.server_key).clone());
-    println!("[{}ms] Server key set", start_time.elapsed().as_millis());
+    println!("[{}ms] Starting position computation", start_time.elapsed().as_millis());
     
     let opening_fee_ciphertext = FheUint64::encrypt(opening_fee, &*state.client_key); // use some sort of looh up later for these to avoid encryption
     println!("[{}ms] Opening fee encrypted", start_time.elapsed().as_millis());
@@ -112,7 +107,6 @@ pub async fn open_position_circuit(
 }
 
 pub async fn health_check_long_circuit(state: &AppState, liqdation_price: FheUint64, mark_price: u64) -> bool {
-    set_server_key((*state.server_key).clone());
     println!("Health check long circuit called");
     let mark_ciphertext = FheUint64::encrypt(mark_price, &*state.client_key);
     let status_ciphertext = mark_ciphertext.ge(&liqdation_price);
@@ -121,7 +115,6 @@ pub async fn health_check_long_circuit(state: &AppState, liqdation_price: FheUin
 }
 
 pub async fn funding_rate_long_pay_short_circuit(state: &AppState, liqudation_price_ciphertext: Ciphertext, delta: u64) -> Result<(), Box<dyn std::error::Error>> {
-    set_server_key((*state.server_key).clone());
     let encrypted_delta = FheUint64::encrypt(delta, &*state.client_key).clone();
     println!("trying to do the math for funding rate LPS");
     

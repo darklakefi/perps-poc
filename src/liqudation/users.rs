@@ -172,7 +172,7 @@ pub async fn view_balance_handler(
     State(state): State<AppState>,
     Path(user_id): Path<u128>
 ) -> (StatusCode, Json<ViewBalanceResponse>) {
-    set_server_key((*state.server_key).clone());
+    // Server key is already set globally in main.rs
     let balance = state.user_cache.lock().await.get_balance(user_id).unwrap().clone();
     let decrypted: u64 = state.ciphertext_cache.lock().await.get_ciphertext(balance).unwrap().ciphertext.decrypt(&state.client_key);
     let response = ViewBalanceResponse {
