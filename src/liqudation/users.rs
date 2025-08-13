@@ -205,3 +205,5 @@ pub async fn open_position_handler( // for now we are going to happy path the tr
     (StatusCode::OK, Json(OpenPositionResponse { message: "Position opened successfully".to_string() }))
 }
 
+// set up handler for encrypted stop loss / take profit 
+
