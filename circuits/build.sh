@@ -43,14 +43,10 @@ if [ ! -f "$PTAU" ]; then
         "https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_12.ptau"
 fi
 
-# 4. Generate Circom circuit
+# 4. Transpile Circom → AOA (uses Poseidon library)
 echo ""
-echo "=== Step 1: Generate Circom ==="
-python3 "$SCRIPT_DIR/gen_balance_update.py" "$SCRIPT_DIR/balance_update.circom"
-
-# 5. Transpile Circom → AOA
-echo ""
-echo "=== Step 2: Circom → AOA ==="
+echo "=== Step 1: Circom → AOA ==="
+echo "  Source: balance_update.circom ($(wc -l < "$SCRIPT_DIR/balance_update.circom") lines)"
 "$AOALANG/bin/circom2aoa" "$SCRIPT_DIR/balance_update.circom"
 # circom2aoa writes .aoa file alongside the .circom input
 LINES=$(wc -l < "$SCRIPT_DIR/balance_update.aoa")
@@ -58,7 +54,7 @@ echo "  Written to balance_update.aoa ($LINES lines)"
 
 # 6. Compile AOA → R1CS JSON
 echo ""
-echo "=== Step 3: AOA → R1CS JSON ==="
+echo "=== Step 2: AOA → R1CS JSON ==="
 "$AOALANG/bin/aoac" -g "$SCRIPT_DIR/balance_update.aoa"
 # aoac writes .r1cs.json alongside the .aoa file
 SIZE=$(wc -c < "$SCRIPT_DIR/balance_update.r1cs.json")
@@ -66,7 +62,7 @@ echo "  Size: $SIZE bytes"
 
 # 7. Zyga setup (generate proving key)
 echo ""
-echo "=== Step 4: Zyga Setup ==="
+echo "=== Step 3: Zyga Setup ==="
 "$ZYGA_BIN" setup \
     -r "$SCRIPT_DIR/balance_update.r1cs.json" \
     -o "$SCRIPT_DIR/balance_update" \
@@ -75,7 +71,6 @@ echo "=== Step 4: Zyga Setup ==="
 echo ""
 echo "=== Build Complete ==="
 echo "Generated files:"
-echo "  - balance_update.circom     (Circom source)"
 echo "  - balance_update.aoa        (AOA intermediate)"
 echo "  - balance_update.r1cs.json  (R1CS constraints)"
 echo "  - balance_update.zyga       (Zyga proving key)"
