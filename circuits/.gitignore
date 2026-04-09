@@ -1,0 +1,14 @@
+# Generated circuit artifacts (reproducible via build.sh)
+balance_update.circom
+balance_update.aoa
+balance_update.r1cs.json
+balance_update.zyga
+proving_key.rs
+public_coefficients.rs
+
+# Powers of Tau ceremony file (downloaded by build.sh)
+*.ptau
+
+# Proof outputs
+proof.json
+witness.json
