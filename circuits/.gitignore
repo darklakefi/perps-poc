@@ -2,6 +2,16 @@
 balance_update.aoa
 balance_update.r1cs.json
 balance_update.zyga
+balance_withdraw.aoa
+balance_withdraw.r1cs.json
+balance_withdraw.zyga
+balance_withdraw_public_coefficients.rs
+balance_withdraw_proving_key.rs
+liquidation_check.aoa
+liquidation_check.r1cs.json
+liquidation_check.zyga
+liquidation_check_public_coefficients.rs
+liquidation_check_proving_key.rs
 proving_key.rs
 public_coefficients.rs
 
@@ -11,3 +21,10 @@ public_coefficients.rs
 # Proof outputs
 proof.json
 witness.json
+liquidation_proof.json
+liquidation_witness.json
+withdraw_proof.json
+withdraw_witness.json
+
+# Temporary expanded sources from the old include workaround
+.*.expanded.circom

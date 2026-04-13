@@ -1,4 +1,4 @@
-Darklake Liqdation Engine POC of a POC xD
+Darklake Liquidation Engine ZK POC
 
 Basic User Flow 
 
@@ -19,27 +19,12 @@ Server Architecture
 - Constant Health Checks based on open user positions
 
 
-Questions for the Team??
-
-- should we be running 2 servers.. 1 internal and 1 'public'
-    - intenral could handle internal requests like 'encrypt' aka generate random [u8;32] pointer
-    - health checks
-    - forwards liqdations 
-    - basicaly we sperate the servers into one that needs to listen for user requests and internal
-
-- how to handle client side encryption requests
-    - zama uses zkpok.. zk proof for valid encrpytion w/o leaking plaintext input
-    - i think arcium doesn use zk and if the amount u tried to encrypt, u kinda just fuck urself
-    - current poc poc doesnt handle this, user inputs is public.. deal w this later
-    - pub key encryption client side cud also work, we just forwards the pointer we generate??
-
 Food for Thought:
 
 - Why do we have an in-momory 'cache'
-    - AFAIK general practice for FHE coprocessing requires the actual Compresseed and serlized Ciphertexts to be stored in a DB (maybe even written to a DA)
-    - The cache allows us to refrence ciphertexts directly in their un-compressed state (FheUint64 in this case) wihtout having to deal with compression and deserlization 
-    - Useful for ciphertexts that don't need to persist. 
-    - Again the idea is that everytime we need to write or update a ciphertext, we spin up some sort of async thread/worker to handle the db write process (compress and serlize)
+    - In the ZK version the cache holds user balance commitments and open positions, not encrypted state.
+    - The long-term version should persist commitments, positions, and proof metadata in a DB or DA-backed store.
+    - This POC keeps that state in memory so the proof-backed flows are easy to test end to end.
 
 - We (I) need to think about how to optimize the health check/funding engine
     - should we make it so that smaller assets have a tighter spread, as price flucations lead to many attacks
@@ -47,4 +32,3 @@ Food for Thought:
 - Handling quanitity adjustments
     - intial poc of poc just giga happy path assums that 1 unit quantity. ex: 30k notional and entry price of 30k
     - ideally it should be optimized for whatever is the least amount of compute. maybe quanitity adjustments can just be done in plaintext. 
-

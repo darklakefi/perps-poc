@@ -1,32 +1,11 @@
-use crate::liqudation::users::User;
-use serde::{Deserialize, Serialize};
-use axum::{Json, http::StatusCode, extract::{State, Path}};
-use crate::AppState;
-use rand::Rng;
-use crate::fhe::circuits::{health_check_long_circuit, funding_rate_long_pay_short_circuit};
-use tfhe::{
-    FheUint64,
-    CompressedCiphertextListBuilder,
-    set_server_key,
+use axum::{
+    extract::State,
+    http::StatusCode,
+    Json,
 };
-use tfhe::prelude::*;
+use serde::{Deserialize, Serialize};
 
-
-#[derive(Deserialize)]
-pub struct EncryptRequest {
-    pub user_id: u128,
-    pub amount: u64,
-}
-
-#[derive(Serialize)]
-pub struct EncryptResponse {
-    pub ciphertext: [u8;32],
-}
-
-#[derive(Serialize)]
-pub struct GetCiphertextResponse {
-    pub ciphertext: FheUint64,
-}
+use crate::AppState;
 
 #[derive(Deserialize)]
 pub struct HealthCheckRequest {
@@ -37,6 +16,7 @@ pub struct HealthCheckRequest {
 #[derive(Serialize)]
 pub struct HealthCheckResponse {
     pub status: String,
+    pub liquidation_price: u64,
 }
 
 #[derive(Deserialize)]
@@ -48,79 +28,70 @@ pub struct FundingRateLPSRequest {
 #[derive(Serialize)]
 pub struct FundingRateLPSResponse {
     pub status: String,
-}
-
-
-
-//////////////////////////////////////////////////////////// Handlers ////////////////////////////////////////////////////////////
-
-pub async fn encrypt_handler(
-    State(state): State<AppState>,
-    Json(payload): Json<EncryptRequest>
-) -> (StatusCode, Json<EncryptResponse>) {
-    let random_bytes: [u8; 32] = rand::random();
-    let hold_ciphertext = FheUint64::encrypt(payload.amount, &*state.client_key);
-    state.ciphertext_cache.lock().await.add_ciphertext(random_bytes, payload.user_id, hold_ciphertext);
-    (StatusCode::OK, Json(EncryptResponse { ciphertext: random_bytes }))
-}
-
-pub async fn _encrypt_helper(State(state): State<AppState>, amount: u64, user_id: u128) -> [u8;32] {
-    let random_bytes: [u8; 32] = rand::random();
-    let hold_ciphertext = FheUint64::encrypt(amount, &*state.client_key);
-    state.ciphertext_cache.lock().await.add_ciphertext(random_bytes, user_id, hold_ciphertext);
-    random_bytes
-}
-
-pub async fn _encrypt_from_FheUint64(State(state): State<AppState>, amount: FheUint64, user_id: u128) -> [u8;32] {
-    let random_bytes: [u8; 32] = rand::random();
-    let hold_ciphertext = amount;
-    state.ciphertext_cache.lock().await.add_ciphertext(random_bytes, user_id, hold_ciphertext);
-    random_bytes
-}
-
-pub async fn get_ciphertext_handler(
-    State(state): State<AppState>,
-    Path(ciphertext_key): Path<[u8;32]>
-) -> (StatusCode, Json<GetCiphertextResponse>) {
-    let ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(ciphertext_key).unwrap().clone();
-    (StatusCode::OK, Json(GetCiphertextResponse { ciphertext: ciphertext.ciphertext.clone() }))
+    pub liquidation_price: u64,
 }
 
 pub async fn health_check_long_handler(
     State(state): State<AppState>,
-    Json(payload): Json<HealthCheckRequest>
-) -> (StatusCode, Json<HealthCheckResponse>) { //for now lets just check the first long position in the array
-    let position = state.position_cache.lock().await.get_position(0, true).unwrap().clone(); // just get first for now
-    let liqdation_price_ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(position.liqudation_price).unwrap().ciphertext.clone();
-    let result = health_check_long_circuit(&state, liqdation_price_ciphertext, payload.mark_price).await;
-    if result { 
-        (StatusCode::OK, Json(HealthCheckResponse { status: "Solvent".to_string() }))
-    } else {
-        (StatusCode::BAD_REQUEST, Json(HealthCheckResponse { status: "Insolvent".to_string() }))
-    }
-} 
+    Json(payload): Json<HealthCheckRequest>,
+) -> (StatusCode, Json<HealthCheckResponse>) {
+    let position = match state.position_cache.lock().await.get_position(payload.position_id, true).cloned() {
+        Some(position) => position,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(HealthCheckResponse {
+                    status: "Position not found".to_string(),
+                    liquidation_price: 0,
+                }),
+            )
+        }
+    };
+
+    let solvent = payload.mark_price >= position.liquidation_price;
+    (
+        if solvent { StatusCode::OK } else { StatusCode::BAD_REQUEST },
+        Json(HealthCheckResponse {
+            status: if solvent {
+                "Solvent".to_string()
+            } else {
+                "Insolvent".to_string()
+            },
+            liquidation_price: position.liquidation_price,
+        }),
+    )
+}
 
 pub async fn funding_rate_long_pay_short_handler(
     State(state): State<AppState>,
-    Json(payload): Json<FundingRateLPSRequest>
+    Json(payload): Json<FundingRateLPSRequest>,
 ) -> (StatusCode, Json<FundingRateLPSResponse>) {
-    println!("Funding rate long pay short handler called");
-    let position = state.position_cache.lock().await.get_position(payload.position_id, true).unwrap().clone();
-    println!("Position liquidation price key: {:?}", position.liqudation_price);
-    
-    let ciphertext = state.ciphertext_cache.lock().await.get_ciphertext(position.liqudation_price).unwrap().clone();
-    println!("Ciphertext found with key: {:?}", ciphertext.key);
-    
-    let delta = position.notional * payload.delta_percent / 100; 
-    println!("Calculated delta: {}", delta);
-    
-    funding_rate_long_pay_short_circuit(
-        &state, 
-        ciphertext,
-        delta).await;
-    
-    (StatusCode::OK, Json(FundingRateLPSResponse { status: "Success".to_string() }))
+    let mut position_cache = state.position_cache.lock().await;
+    let position = match position_cache.get_any_position_mut(payload.position_id) {
+        Some(position) => position,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(FundingRateLPSResponse {
+                    status: "Position not found".to_string(),
+                    liquidation_price: 0,
+                }),
+            )
+        }
+    };
+
+    let delta = position.notional.saturating_mul(payload.delta_percent) / 100;
+    if position.direction {
+        position.liquidation_price = position.liquidation_price.saturating_sub(delta);
+    } else {
+        position.liquidation_price = position.liquidation_price.saturating_add(delta);
+    }
+
+    (
+        StatusCode::OK,
+        Json(FundingRateLPSResponse {
+            status: "Success".to_string(),
+            liquidation_price: position.liquidation_price,
+        }),
+    )
 }
-
-
-
