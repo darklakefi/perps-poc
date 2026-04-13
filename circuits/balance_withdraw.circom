@@ -11,9 +11,10 @@ template BalanceWithdraw() {
     signal output old_commitment;
     signal output new_commitment;
 
-    component ge = GreaterEqThan(64);
+    component ge = GreaterEqThan64();
     ge.a <== old_balance;
     ge.b <== delta;
+    ge.out === 1;
 
     signal new_balance;
     new_balance <== old_balance - delta;
